@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 import base64
+import random
+import time
 from typing import Iterator
 from zoneinfo import ZoneInfo
 
@@ -12,18 +14,26 @@ TIBBER_API_URL = "https://api.tibber.com/v1-beta/gql"
 
 
 def _post_graphql(token: str, query: str, variables: dict) -> dict:
-    response = requests.post(
-        TIBBER_API_URL,
-        json={"query": query, "variables": variables},
-        headers={"Authorization": f"Bearer {token}"},
-        timeout=30,
-    )
-    try:
-        response.raise_for_status()
-    except requests.HTTPError as exc:
-        body = response.text.strip()
-        raise RuntimeError(f"Tibber HTTP error {response.status_code}: {body}") from exc
-    payload = response.json()
+    max_retries = 6
+    backoff_base = 2.0
+    for attempt in range(max_retries + 1):
+        response = requests.post(
+            TIBBER_API_URL,
+            json={"query": query, "variables": variables},
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=30,
+        )
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as exc:
+            if response.status_code == 429 and attempt < max_retries:
+                delay = backoff_base**attempt + random.uniform(0.0, 0.5)
+                time.sleep(delay)
+                continue
+            body = response.text.strip()
+            raise RuntimeError(f"Tibber HTTP error {response.status_code}: {body}") from exc
+        payload = response.json()
+        break
     if "errors" in payload:
         messages = ", ".join(
             error.get("message", "Unknown error") for error in payload["errors"]
