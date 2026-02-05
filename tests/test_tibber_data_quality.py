@@ -39,8 +39,8 @@ def test_consumption_coverage_2025_q4(db_conn: psycopg2.extensions.connection) -
     home_id = _home_id()
     query = f"""
         select
-            min(from_time) <= (timestamp '2025-09-01 00:00:00' at time zone 'Europe/Stockholm') as min_ok,
-            max(from_time) >= (timestamp '2025-12-31 23:00:00' at time zone 'Europe/Stockholm') as max_ok
+            min(from_time) <= (timestamp '2024-09-01 00:00:00' at time zone 'Europe/Stockholm') as min_ok,
+            max(from_time) >= (timestamp '2026-01-31 23:00:00' at time zone 'Europe/Stockholm') as max_ok
         from {dataset}.consumption
         where home_id = %s
     """
@@ -49,8 +49,8 @@ def test_consumption_coverage_2025_q4(db_conn: psycopg2.extensions.connection) -
         row = cur.fetchone()
     assert row and row[0] is not None, "No data found in consumption table"
     min_ok, max_ok = row
-    assert min_ok, "min_time is after 2025-09-01 00:00 Europe/Stockholm"
-    assert max_ok, "max_time is before 2025-12-31 23:00 Europe/Stockholm"
+    assert min_ok, "min_time is after 2024-09-01 00:00 Europe/Stockholm"
+    assert max_ok, "max_time is before 2026-01-31 23:00 Europe/Stockholm"
 
 
 def test_no_missing_hours_2025_q4(db_conn: psycopg2.extensions.connection) -> None:
@@ -64,7 +64,7 @@ def test_no_missing_hours_2025_q4(db_conn: psycopg2.extensions.connection) -> No
                    lag(from_time) over (order by from_time) as prev_time
             from {dataset}.consumption
             where home_id = %s
-              and from_time >= (timestamp '2025-09-01 00:00:00' at time zone 'Europe/Stockholm')
+              and from_time >= (timestamp '2024-09-01 00:00:00' at time zone 'Europe/Stockholm')
               and from_time < (timestamp '2026-01-01 00:00:00' at time zone 'Europe/Stockholm')
         )
         select count(*)
@@ -82,7 +82,7 @@ def test_no_missing_hours_2025_q4(db_conn: psycopg2.extensions.connection) -> No
                        lag(from_time) over (order by from_time) as prev_time
                 from {dataset}.consumption
                 where home_id = %s
-                  and from_time >= (timestamp '2025-09-01 00:00:00' at time zone 'Europe/Stockholm')
+                  and from_time >= (timestamp '2024-09-01 00:00:00' at time zone 'Europe/Stockholm')
                   and from_time < (timestamp '2026-01-01 00:00:00' at time zone 'Europe/Stockholm')
             )
             select prev_time, from_time, from_time - prev_time as gap
@@ -97,7 +97,7 @@ def test_no_missing_hours_2025_q4(db_conn: psycopg2.extensions.connection) -> No
             rows = cur.fetchall()
         formatted = "; ".join(f"{prev} -> {curr} ({gap})" for prev, curr, gap in rows)
         pytest.fail(
-            f"Found {gaps} gaps larger than 1 hour between 2025-09-01 and 2025-12-31. Examples: {formatted}"
+            f"Found {gaps} gaps larger than 1 hour between 2024-09-01 and 2025-12-31. Examples: {formatted}"
         )
 
 
